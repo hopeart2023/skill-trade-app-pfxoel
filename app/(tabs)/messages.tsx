@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { IconSymbol } from "@/components/IconSymbol";
 import { colors } from "@/styles/commonStyles";
 import { mockUsers } from "@/data/mockData";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 
 interface ChatPreview {
   id: string;
@@ -96,6 +98,32 @@ export default function MessagesScreen() {
           </Pressable>
         </View>
 
+        {/* AI Assistant Card */}
+        <Pressable 
+          style={styles.aiAssistantCard}
+          onPress={() => router.push('/ai-chat')}
+        >
+          <LinearGradient
+            colors={[colors.primary, colors.secondary, colors.accent]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.aiAssistantGradient}
+          >
+            <View style={styles.aiAssistantContent}>
+              <View style={styles.aiIconContainer}>
+                <IconSymbol name="sparkles" size={24} color="#FFFFFF" />
+              </View>
+              <View style={styles.aiTextContainer}>
+                <Text style={styles.aiAssistantTitle}>AI Assistant</Text>
+                <Text style={styles.aiAssistantSubtitle}>
+                  Get help finding skill matches & learning paths
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color="#FFFFFF" />
+            </View>
+          </LinearGradient>
+        </Pressable>
+
         {/* Chats List */}
         <ScrollView
           style={styles.scrollView}
@@ -145,6 +173,45 @@ const styles = StyleSheet.create({
   },
   composeButton: {
     padding: 8,
+  },
+
+  // AI Assistant Card
+  aiAssistantCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    boxShadow: '0px 4px 16px rgba(255, 112, 67, 0.3)',
+    elevation: 4,
+  },
+  aiAssistantGradient: {
+    padding: 16,
+  },
+  aiAssistantContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  aiIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiTextContainer: {
+    flex: 1,
+  },
+  aiAssistantTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  aiAssistantSubtitle: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
 
   // Scroll View
