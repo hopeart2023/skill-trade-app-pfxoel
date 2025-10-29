@@ -1,85 +1,132 @@
 
-import React from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   Platform,
   Pressable,
-  Image
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { IconSymbol } from "@/components/IconSymbol";
-import { colors } from "@/styles/commonStyles";
-import { mockUsers } from "@/data/mockData";
-import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+  Image,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { IconSymbol } from '@/components/IconSymbol';
+import { colors } from '@/styles/commonStyles';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { supabase } from '@/app/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { Conversation, Profile } from '@/types/database';
 
-interface ChatPreview {
-  id: string;
-  user: typeof mockUsers[0];
-  lastMessage: string;
-  timestamp: string;
-  unread: number;
-  isOnline: boolean;
+interface ConversationWithProfile extends Conversation {
+  otherUser?: Profile;
+  unreadCount?: number;
 }
 
-const mockChats: ChatPreview[] = [
-  {
-    id: '1',
-    user: mockUsers[0],
-    lastMessage: 'Hey! I&apos;d love to learn React Native from you.',
-    timestamp: '2m ago',
-    unread: 2,
-    isOnline: true,
-  },
-  {
-    id: '2',
-    user: mockUsers[1],
-    lastMessage: 'Thanks for the design tips! Really helpful.',
-    timestamp: '1h ago',
-    unread: 0,
-    isOnline: false,
-  },
-  {
-    id: '3',
-    user: mockUsers[2],
-    lastMessage: 'When are you free for our next session?',
-    timestamp: '3h ago',
-    unread: 1,
-    isOnline: true,
-  },
-  {
-    id: '4',
-    user: mockUsers[3],
-    lastMessage: 'Great session today! See you next week.',
-    timestamp: '1d ago',
-    unread: 0,
-    isOnline: false,
-  },
-];
-
 export default function MessagesScreen() {
-  const renderChatItem = (chat: ChatPreview) => (
-    <Pressable key={chat.id} style={styles.chatItem}>
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState<ConversationWithProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadConversations();
+    }
+  }, [user]);
+
+  const loadConversations = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('*')
+        .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
+        .order('last_message_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Load other user profiles
+      const conversationsWithProfiles = await Promise.all(
+        (data || []).map(async (conv) => {
+          const otherUserId =
+            conv.participant1_id === user.id ? conv.participant2_id : conv.participant1_id;
+
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', otherUserId)
+            .single();
+
+          // Get unread count
+          const { count } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .neq('sender_id', user.id)
+            .eq('is_read', false);
+
+          return {
+            ...conv,
+            otherUser: profileData,
+            unreadCount: count || 0,
+          };
+        })
+      );
+
+      setConversations(conversationsWithProfiles);
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const renderConversationItem = (conversation: ConversationWithProfile) => (
+    <Pressable
+      key={conversation.id}
+      style={styles.chatItem}
+      onPress={() => router.push(`/chat/${conversation.id}`)}
+    >
       <View style={styles.avatarContainer}>
-        <Image source={{ uri: chat.user.profilePhoto }} style={styles.avatar} />
-        {chat.isOnline && <View style={styles.onlineDot} />}
+        {conversation.otherUser?.avatar_url ? (
+          <Image source={{ uri: conversation.otherUser.avatar_url }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <IconSymbol name="person.fill" size={24} color={colors.textSecondary} />
+          </View>
+        )}
+        <View style={styles.onlineDot} />
       </View>
 
       <View style={styles.chatContent}>
         <View style={styles.chatHeader}>
-          <Text style={styles.userName}>{chat.user.name}</Text>
-          <Text style={styles.timestamp}>{chat.timestamp}</Text>
+          <Text style={styles.userName}>{conversation.otherUser?.name || 'User'}</Text>
+          <Text style={styles.timestamp}>{formatTimestamp(conversation.last_message_at)}</Text>
         </View>
         <View style={styles.messageRow}>
           <Text style={styles.lastMessage} numberOfLines={1}>
-            {chat.lastMessage}
+            {conversation.last_message || 'No messages yet'}
           </Text>
-          {chat.unread > 0 && (
+          {conversation.unreadCount! > 0 && (
             <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{chat.unread}</Text>
+              <Text style={styles.unreadText}>{conversation.unreadCount}</Text>
             </View>
           )}
         </View>
@@ -99,10 +146,7 @@ export default function MessagesScreen() {
         </View>
 
         {/* AI Assistant Card */}
-        <Pressable 
-          style={styles.aiAssistantCard}
-          onPress={() => router.push('/ai-chat')}
-        >
+        <Pressable style={styles.aiAssistantCard} onPress={() => router.push('/ai-chat')}>
           <LinearGradient
             colors={[colors.primary, colors.secondary, colors.accent]}
             start={{ x: 0, y: 0 }}
@@ -124,24 +168,26 @@ export default function MessagesScreen() {
           </LinearGradient>
         </Pressable>
 
-        {/* Chats List */}
+        {/* Conversations List */}
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            Platform.OS !== 'ios' && styles.scrollContentWithTabBar
+            Platform.OS !== 'ios' && styles.scrollContentWithTabBar,
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {mockChats.map(renderChatItem)}
-
-          {mockChats.length === 0 && (
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : conversations.length > 0 ? (
+            conversations.map(renderConversationItem)
+          ) : (
             <View style={styles.emptyState}>
               <IconSymbol name="message.fill" size={64} color={colors.textSecondary} />
               <Text style={styles.emptyStateTitle}>No messages yet</Text>
-              <Text style={styles.emptyStateText}>
-                Start a conversation with a skill trader
-              </Text>
+              <Text style={styles.emptyStateText}>Start a conversation with a skill trader</Text>
             </View>
           )}
         </ScrollView>
@@ -174,8 +220,6 @@ const styles = StyleSheet.create({
   composeButton: {
     padding: 8,
   },
-
-  // AI Assistant Card
   aiAssistantCard: {
     marginHorizontal: 20,
     marginBottom: 16,
@@ -213,8 +257,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.9)',
   },
-
-  // Scroll View
   scrollView: {
     flex: 1,
   },
@@ -224,8 +266,10 @@ const styles = StyleSheet.create({
   scrollContentWithTabBar: {
     paddingBottom: 100,
   },
-
-  // Chat Items
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
   chatItem: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -241,6 +285,14 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: colors.card,
+  },
+  avatarPlaceholder: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   onlineDot: {
     position: 'absolute',
@@ -296,8 +348,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-
-  // Empty State
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',

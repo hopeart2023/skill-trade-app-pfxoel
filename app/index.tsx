@@ -1,12 +1,16 @@
 
 import { Redirect } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 export default function Index() {
-  // For now, redirect to welcome screen
-  // In production, check if user is authenticated and redirect accordingly
-  const isAuthenticated = false; // This would come from your auth state
+  const { session, loading } = useAuth();
 
-  if (isAuthenticated) {
+  if (loading) {
+    return <LoadingScreen message="Initializing SkillTrade..." />;
+  }
+
+  if (session) {
     return <Redirect href="/(tabs)/(home)" />;
   }
 

@@ -1,23 +1,26 @@
 
-import React, { useState } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   Pressable,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import { colors } from "@/styles/commonStyles";
-import { IconSymbol } from "@/components/IconSymbol";
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginScreen() {
+  const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,36 +34,42 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     console.log('Login attempt:', { email });
-    
-    // Simulate login
-    setTimeout(() => {
-      setIsLoading(false);
+
+    const { error } = await signIn(email, password);
+
+    setIsLoading(false);
+
+    if (error) {
+      console.error('Login error:', error);
+      Alert.alert('Login Failed', error.message || 'Invalid email or password');
+    } else {
       Alert.alert('Success', 'Login successful!');
       router.replace('/(tabs)/(home)');
-    }, 1500);
+    }
   };
 
-  const handleSocialLogin = (provider: string) => {
-    console.log(`${provider} login pressed`);
-    Alert.alert('Coming Soon', `${provider} login will be available soon!`);
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    const { error } = await signInWithGoogle();
+    setIsLoading(false);
+
+    if (error) {
+      console.error('Google login error:', error);
+      Alert.alert('Google Login Failed', error.message || 'Failed to sign in with Google');
+    }
+  };
+
+  const handleAppleLogin = () => {
+    Alert.alert('Coming Soon', 'Apple login will be available soon!');
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <Pressable 
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
               <IconSymbol name="chevron.left" size={24} color={colors.text} />
             </Pressable>
             <Text style={styles.title}>Welcome Back!</Text>
@@ -82,6 +91,7 @@ export default function LoginScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  editable={!isLoading}
                 />
               </View>
             </View>
@@ -98,38 +108,37 @@ export default function LoginScreen() {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  editable={!isLoading}
                 />
                 <Pressable onPress={() => setShowPassword(!showPassword)}>
-                  <IconSymbol 
-                    name={showPassword ? "eye.slash.fill" : "eye.fill"} 
-                    size={20} 
-                    color={colors.textSecondary} 
+                  <IconSymbol
+                    name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
+                    size={20}
+                    color={colors.textSecondary}
                   />
                 </Pressable>
               </View>
             </View>
 
-            <Pressable 
+            <Pressable
               style={styles.forgotPassword}
               onPress={() => Alert.alert('Forgot Password', 'Feature coming soon!')}
             >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </Pressable>
 
-            <Pressable 
-              style={styles.loginButton}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
+            <Pressable style={styles.loginButton} onPress={handleLogin} disabled={isLoading}>
               <LinearGradient
                 colors={[colors.primary, colors.secondary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.loginButtonGradient}
               >
-                <Text style={styles.loginButtonText}>
-                  {isLoading ? 'Signing In...' : 'Sign In'}
-                </Text>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.loginButtonText}>Sign In</Text>
+                )}
               </LinearGradient>
             </Pressable>
           </View>
@@ -143,18 +152,12 @@ export default function LoginScreen() {
 
           {/* Social Login */}
           <View style={styles.socialButtons}>
-            <Pressable 
-              style={styles.socialButton}
-              onPress={() => handleSocialLogin('Google')}
-            >
+            <Pressable style={styles.socialButton} onPress={handleGoogleLogin} disabled={isLoading}>
               <IconSymbol name="globe" size={24} color={colors.text} />
               <Text style={styles.socialButtonText}>Google</Text>
             </Pressable>
 
-            <Pressable 
-              style={styles.socialButton}
-              onPress={() => handleSocialLogin('Apple')}
-            >
+            <Pressable style={styles.socialButton} onPress={handleAppleLogin} disabled={isLoading}>
               <IconSymbol name="apple.logo" size={24} color={colors.text} />
               <Text style={styles.socialButtonText}>Apple</Text>
             </Pressable>

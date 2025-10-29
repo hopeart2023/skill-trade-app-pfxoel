@@ -1,23 +1,26 @@
 
-import React, { useState } from "react";
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
   Pressable,
   TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
-import { colors } from "@/styles/commonStyles";
-import { IconSymbol } from "@/components/IconSymbol";
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignUpScreen() {
+  const { signUp, signInWithGoogle } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,36 +46,50 @@ export default function SignUpScreen() {
 
     setIsLoading(true);
     console.log('Sign up attempt:', { name, email });
-    
-    // Simulate sign up
-    setTimeout(() => {
-      setIsLoading(false);
-      Alert.alert('Success', 'Account created successfully!');
-      router.replace('/(tabs)/(home)');
-    }, 1500);
+
+    const { error } = await signUp(email, password, name);
+
+    setIsLoading(false);
+
+    if (error) {
+      console.error('Sign up error:', error);
+      Alert.alert('Sign Up Failed', error.message || 'Failed to create account');
+    } else {
+      Alert.alert(
+        'Success!',
+        'Account created successfully! Please check your email to verify your account.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/auth/login'),
+          },
+        ]
+      );
+    }
   };
 
-  const handleSocialSignUp = (provider: string) => {
-    console.log(`${provider} sign up pressed`);
-    Alert.alert('Coming Soon', `${provider} sign up will be available soon!`);
+  const handleGoogleSignUp = async () => {
+    setIsLoading(true);
+    const { error } = await signInWithGoogle();
+    setIsLoading(false);
+
+    if (error) {
+      console.error('Google sign up error:', error);
+      Alert.alert('Google Sign Up Failed', error.message || 'Failed to sign up with Google');
+    }
+  };
+
+  const handleAppleSignUp = () => {
+    Alert.alert('Coming Soon', 'Apple sign up will be available soon!');
   };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
-        <ScrollView 
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={styles.header}>
-            <Pressable 
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
+            <Pressable style={styles.backButton} onPress={() => router.back()}>
               <IconSymbol name="chevron.left" size={24} color={colors.text} />
             </Pressable>
             <Text style={styles.title}>Create Account</Text>
@@ -92,6 +109,7 @@ export default function SignUpScreen() {
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
+                  editable={!isLoading}
                 />
               </View>
             </View>
@@ -109,6 +127,7 @@ export default function SignUpScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  editable={!isLoading}
                 />
               </View>
             </View>
@@ -125,12 +144,13 @@ export default function SignUpScreen() {
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  editable={!isLoading}
                 />
                 <Pressable onPress={() => setShowPassword(!showPassword)}>
-                  <IconSymbol 
-                    name={showPassword ? "eye.slash.fill" : "eye.fill"} 
-                    size={20} 
-                    color={colors.textSecondary} 
+                  <IconSymbol
+                    name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
+                    size={20}
+                    color={colors.textSecondary}
                   />
                 </Pressable>
               </View>
@@ -148,24 +168,23 @@ export default function SignUpScreen() {
                   onChangeText={setConfirmPassword}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
+                  editable={!isLoading}
                 />
               </View>
             </View>
 
-            <Pressable 
-              style={styles.signupButton}
-              onPress={handleSignUp}
-              disabled={isLoading}
-            >
+            <Pressable style={styles.signupButton} onPress={handleSignUp} disabled={isLoading}>
               <LinearGradient
                 colors={[colors.primary, colors.secondary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.signupButtonGradient}
               >
-                <Text style={styles.signupButtonText}>
-                  {isLoading ? 'Creating Account...' : 'Create Account'}
-                </Text>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.signupButtonText}>Create Account</Text>
+                )}
               </LinearGradient>
             </Pressable>
           </View>
@@ -179,18 +198,12 @@ export default function SignUpScreen() {
 
           {/* Social Sign Up */}
           <View style={styles.socialButtons}>
-            <Pressable 
-              style={styles.socialButton}
-              onPress={() => handleSocialSignUp('Google')}
-            >
+            <Pressable style={styles.socialButton} onPress={handleGoogleSignUp} disabled={isLoading}>
               <IconSymbol name="globe" size={24} color={colors.text} />
               <Text style={styles.socialButtonText}>Google</Text>
             </Pressable>
 
-            <Pressable 
-              style={styles.socialButton}
-              onPress={() => handleSocialSignUp('Apple')}
-            >
+            <Pressable style={styles.socialButton} onPress={handleAppleSignUp} disabled={isLoading}>
               <IconSymbol name="apple.logo" size={24} color={colors.text} />
               <Text style={styles.socialButtonText}>Apple</Text>
             </Pressable>
@@ -206,9 +219,7 @@ export default function SignUpScreen() {
 
           {/* Terms */}
           <Text style={styles.termsText}>
-            By signing up, you agree to our{' '}
-            <Text style={styles.termsLink}>Terms of Service</Text>
-            {' '}and{' '}
+            By signing up, you agree to our <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
             <Text style={styles.termsLink}>Privacy Policy</Text>
           </Text>
         </ScrollView>

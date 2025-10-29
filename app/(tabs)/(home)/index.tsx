@@ -1,299 +1,297 @@
 
-import React, { useState } from "react";
-import { Stack, router } from "expo-router";
-import { 
-  ScrollView, 
-  Pressable, 
-  StyleSheet, 
-  View, 
-  Text, 
+import React, { useState } from 'react';
+import {
+  ScrollView,
+  Pressable,
+  StyleSheet,
+  View,
+  Text,
   Platform,
   Image,
-  Dimensions 
-} from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { useTheme } from "@react-navigation/native";
-import { LinearGradient } from "expo-linear-gradient";
-import { colors, commonStyles } from "@/styles/commonStyles";
-import { mockUsers, skillCategories, currentUser } from "@/data/mockData";
-import { User } from "@/types";
+  Dimensions,
+} from 'react-native';
+import { useTheme } from '@react-navigation/native';
+import { Stack, router } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
+import { mockUsers, skillCategories, currentUser } from '@/data/mockData';
+import { colors, commonStyles } from '@/styles/commonStyles';
+import { LinearGradient } from 'expo-linear-gradient';
+import { User } from '@/types';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 40;
+const CARD_WIDTH = Dimensions.get('window').width - 80;
 
 export default function HomeScreen() {
   const theme = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const filteredUsers = selectedCategory
-    ? mockUsers.filter(user => 
-        user.skillsToTeach.some(skill => skill.category === selectedCategory)
-      )
-    : mockUsers;
+  const renderHeaderRight = () => (
+    <View style={styles.headerRight}>
+      <Pressable style={styles.headerButton} onPress={() => router.push('/trade-requests')}>
+        <IconSymbol name="arrow.left.arrow.right" size={24} color={colors.text} />
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>3</Text>
+        </View>
+      </Pressable>
+      <Pressable style={styles.headerButton} onPress={() => router.push('/map')}>
+        <IconSymbol name="map" size={24} color={colors.text} />
+      </Pressable>
+    </View>
+  );
 
   const renderSkillCard = (category: typeof skillCategories[0]) => (
     <Pressable
       key={category.id}
-      onPress={() => setSelectedCategory(
-        selectedCategory === category.id ? null : category.id
-      )}
       style={[
         styles.skillCard,
-        selectedCategory === category.id && styles.skillCardSelected
+        selectedCategory === category.id && styles.skillCardSelected,
       ]}
+      onPress={() =>
+        setSelectedCategory(selectedCategory === category.id ? null : category.id)
+      }
     >
       <LinearGradient
-        colors={
-          selectedCategory === category.id 
-            ? [category.color, category.color + 'DD'] 
-            : [colors.card, colors.card]
-        }
+        colors={category.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={styles.skillCardGradient}
       >
-        <Text style={styles.skillCardIcon}>{category.icon}</Text>
-        <Text style={[
-          styles.skillCardText,
-          selectedCategory === category.id && styles.skillCardTextSelected
-        ]}>
-          {category.name}
-        </Text>
+        <Text style={styles.skillIcon}>{category.icon}</Text>
+        <Text style={styles.skillName}>{category.name}</Text>
+        <Text style={styles.skillCount}>{category.count} traders</Text>
       </LinearGradient>
     </Pressable>
   );
 
   const renderUserCard = (user: User) => (
-    <Pressable 
-      key={user.id} 
+    <Pressable
+      key={user.id}
       style={styles.userCard}
       onPress={() => router.push(`/user/${user.id}`)}
     >
-      <View style={styles.userCardHeader}>
-        <Image 
-          source={{ uri: user.profilePhoto }} 
-          style={styles.userAvatar}
-        />
-        <View style={styles.userInfo}>
-          <View style={styles.userNameRow}>
-            <Text style={styles.userName}>{user.name}</Text>
-            {user.isOnline && <View style={styles.onlineDot} />}
+      <Image source={{ uri: user.profilePhoto }} style={styles.userPhoto} />
+      <View style={styles.userInfo}>
+        <Text style={styles.userName}>{user.name}</Text>
+        <Text style={styles.userBio} numberOfLines={2}>
+          {user.bio}
+        </Text>
+        <View style={styles.userStats}>
+          <View style={styles.statItem}>
+            <IconSymbol name="star.fill" size={14} color={colors.warning} />
+            <Text style={styles.statText}>{user.rating}</Text>
           </View>
-          <Text style={styles.userLocation} numberOfLines={1}>
-            📍 {user.location}
-          </Text>
-          <View style={styles.userStats}>
-            <Text style={styles.userRating}>⭐ {user.rating}</Text>
-            <Text style={styles.userTrades}>
-              {user.tradesCompleted} trades
-            </Text>
+          <View style={styles.statItem}>
+            <IconSymbol name="checkmark.circle.fill" size={14} color={colors.success} />
+            <Text style={styles.statText}>{user.tradesCompleted} trades</Text>
           </View>
         </View>
-      </View>
-
-      <Text style={styles.userBio} numberOfLines={2}>
-        {user.bio}
-      </Text>
-
-      <View style={styles.skillsSection}>
-        <Text style={styles.skillsSectionTitle}>Can Teach:</Text>
         <View style={styles.skillTags}>
-          {user.skillsToTeach.slice(0, 3).map(skill => (
-            <View key={skill.id} style={styles.skillTag}>
-              <Text style={styles.skillTagText}>{skill.name}</Text>
+          {user.skillsToTeach.slice(0, 2).map((skill, index) => (
+            <View key={index} style={styles.skillTag}>
+              <Text style={styles.skillTagText}>{skill}</Text>
             </View>
           ))}
         </View>
       </View>
-
-      <View style={styles.skillsSection}>
-        <Text style={styles.skillsSectionTitle}>Wants to Learn:</Text>
-        <View style={styles.skillTags}>
-          {user.skillsToLearn.slice(0, 3).map(skill => (
-            <View key={skill.id} style={[styles.skillTag, styles.skillTagSecondary]}>
-              <Text style={[styles.skillTagText, styles.skillTagTextSecondary]}>
-                {skill.name}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      <LinearGradient
-        colors={[colors.primary, colors.secondary]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.connectButton}
-      >
-        <Text style={styles.connectButtonText}>Connect & Trade</Text>
-      </LinearGradient>
-    </Pressable>
-  );
-
-  const renderHeaderRight = () => (
-    <Pressable
-      onPress={() => console.log('Notifications pressed')}
-      style={styles.headerButton}
-    >
-      <IconSymbol name="bell.fill" color={colors.primary} size={24} />
     </Pressable>
   );
 
   return (
     <>
-      {Platform.OS === 'ios' && (
-        <Stack.Screen
-          options={{
-            title: "SkillTrade",
-            headerRight: renderHeaderRight,
-            headerLargeTitle: true,
-          }}
-        />
-      )}
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            Platform.OS !== 'ios' && styles.scrollContentWithTabBar
-          ]}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Welcome Section */}
-          <LinearGradient
-            colors={[colors.primary, colors.secondary, colors.accent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.welcomeCard}
-          >
-            <Text style={styles.welcomeTitle}>Welcome back, {currentUser.name}! 👋</Text>
-            <Text style={styles.welcomeSubtitle}>
-              Ready to trade skills today?
-            </Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{currentUser.tradesCompleted}</Text>
-                <Text style={styles.statLabel}>Trades</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{currentUser.rating}</Text>
-                <Text style={styles.statLabel}>Rating</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{mockUsers.length}</Text>
-                <Text style={styles.statLabel}>Nearby</Text>
-              </View>
-            </View>
-          </LinearGradient>
+      <Stack.Screen
+        options={{
+          title: 'SkillTrade',
+          headerRight: renderHeaderRight,
+          headerStyle: {
+            backgroundColor: theme.dark ? colors.background : colors.background,
+          },
+          headerTintColor: colors.text,
+          headerTitleStyle: {
+            fontWeight: '800',
+            fontSize: 24,
+          },
+        }}
+      />
+      <ScrollView
+        style={[commonStyles.container, { backgroundColor: colors.background }]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          Platform.OS !== 'ios' && styles.scrollContentWithTabBar,
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Welcome Section */}
+        <View style={styles.welcomeSection}>
+          <Text style={styles.welcomeText}>Welcome back,</Text>
+          <Text style={styles.welcomeName}>{currentUser.name}! 👋</Text>
+          <Text style={styles.welcomeSubtext}>
+            Ready to trade some skills today?
+          </Text>
+        </View>
 
-          {/* Skill Categories */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Explore Skills</Text>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.skillCardsContainer}
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <Pressable style={styles.quickAction} onPress={() => router.push('/trade-requests')}>
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.quickActionGradient}
             >
-              {skillCategories.map(renderSkillCard)}
-            </ScrollView>
-          </View>
+              <IconSymbol name="arrow.left.arrow.right" size={28} color="#FFFFFF" />
+              <Text style={styles.quickActionText}>Trade Requests</Text>
+              <View style={styles.quickActionBadge}>
+                <Text style={styles.quickActionBadgeText}>3</Text>
+              </View>
+            </LinearGradient>
+          </Pressable>
 
-          {/* Nearby Skill Traders */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>
-                {selectedCategory 
-                  ? `${skillCategories.find(c => c.id === selectedCategory)?.name} Traders`
-                  : 'Nearby Skill Traders'
-                }
-              </Text>
-              <Text style={styles.sectionCount}>{filteredUsers.length}</Text>
-            </View>
-            {filteredUsers.map(renderUserCard)}
-          </View>
+          <Pressable style={styles.quickAction} onPress={() => router.push('/map')}>
+            <LinearGradient
+              colors={[colors.secondary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.quickActionGradient}
+            >
+              <IconSymbol name="map.fill" size={28} color="#FFFFFF" />
+              <Text style={styles.quickActionText}>Nearby Traders</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
 
-          {/* Recommended Section */}
-          <View style={styles.section}>
+        {/* Skill Categories */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Explore Skills</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.skillsScroll}
+          >
+            {skillCategories.map(renderSkillCard)}
+          </ScrollView>
+        </View>
+
+        {/* Recommended Traders */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recommended for You</Text>
-            <Text style={styles.sectionSubtitle}>
-              Based on your skills and interests
-            </Text>
-            {mockUsers.slice(0, 2).map(renderUserCard)}
+            <Pressable onPress={() => router.push('/explore')}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </Pressable>
           </View>
-        </ScrollView>
-      </View>
+          {mockUsers.slice(0, 3).map(renderUserCard)}
+        </View>
+
+        {/* Nearby Traders */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Nearby Skill Traders</Text>
+            <Pressable onPress={() => router.push('/map')}>
+              <Text style={styles.seeAllText}>View Map</Text>
+            </Pressable>
+          </View>
+          {mockUsers.slice(3, 6).map(renderUserCard)}
+        </View>
+      </ScrollView>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
     paddingBottom: 20,
   },
   scrollContentWithTabBar: {
     paddingBottom: 100,
   },
-  headerButton: {
-    padding: 8,
+  headerRight: {
+    flexDirection: 'row',
+    gap: 8,
     marginRight: 8,
   },
-  
-  // Welcome Card
-  welcomeCard: {
-    margin: 20,
-    padding: 24,
-    borderRadius: 20,
-    boxShadow: '0px 8px 24px rgba(255, 112, 67, 0.3)',
-    elevation: 8,
+  headerButton: {
+    position: 'relative',
+    padding: 8,
   },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: '800',
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: colors.error,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 8,
   },
-  welcomeSubtitle: {
+  welcomeSection: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  welcomeText: {
     fontSize: 16,
-    color: '#FFFFFF',
-    opacity: 0.9,
-    marginBottom: 20,
+    color: colors.textSecondary,
   },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statValue: {
+  welcomeName: {
     fontSize: 28,
     fontWeight: '800',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  welcomeSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 12,
+    marginBottom: 32,
+  },
+  quickAction: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    boxShadow: '0px 4px 16px rgba(255, 112, 67, 0.3)',
+    elevation: 4,
+  },
+  quickActionGradient: {
+    padding: 20,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  quickActionBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  quickActionBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
-  statLabel: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#FFFFFF',
-    opacity: 0.3,
-  },
-
-  // Sections
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -304,180 +302,109 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.text,
-    paddingHorizontal: 20,
-    marginBottom: 12,
   },
-  sectionSubtitle: {
+  seeAllText: {
     fontSize: 14,
-    color: colors.textSecondary,
-    paddingHorizontal: 20,
-    marginBottom: 12,
-    marginTop: -8,
-  },
-  sectionCount: {
-    fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
-    backgroundColor: colors.highlight,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
   },
-
-  // Skill Cards
-  skillCardsContainer: {
+  skillsScroll: {
     paddingHorizontal: 20,
     gap: 12,
   },
   skillCard: {
+    width: 140,
+    height: 140,
     borderRadius: 16,
     overflow: 'hidden',
-    marginRight: 12,
   },
   skillCardSelected: {
-    transform: [{ scale: 1.05 }],
+    transform: [{ scale: 0.95 }],
   },
   skillCardGradient: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    flex: 1,
+    padding: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 120,
-    borderRadius: 16,
-    boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)',
-    elevation: 3,
   },
-  skillCardIcon: {
-    fontSize: 32,
+  skillIcon: {
+    fontSize: 40,
     marginBottom: 8,
   },
-  skillCardText: {
+  skillName: {
     fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  skillCardTextSelected: {
+    fontWeight: '700',
     color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 4,
   },
-
-  // User Cards
+  skillCount: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
   userCard: {
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.08)',
-    elevation: 3,
-  },
-  userCardHeader: {
     flexDirection: 'row',
-    marginBottom: 16,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    gap: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  userAvatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    marginRight: 16,
-    backgroundColor: colors.backgroundAlt,
+  userPhoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    backgroundColor: colors.background,
   },
   userInfo: {
     flex: 1,
-    justifyContent: 'center',
-  },
-  userNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
   },
   userName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginRight: 8,
+    marginBottom: 4,
   },
-  onlineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.success,
-  },
-  userLocation: {
-    fontSize: 14,
+  userBio: {
+    fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: 8,
+    lineHeight: 18,
   },
   userStats: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
+    marginBottom: 8,
   },
-  userRating: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  userTrades: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  userBio: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-
-  // Skills Section
-  skillsSection: {
-    marginBottom: 12,
-  },
-  skillsSectionTitle: {
+  statText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.text,
   },
   skillTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   skillTag: {
     backgroundColor: colors.highlight,
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: colors.primary + '40',
-  },
-  skillTagSecondary: {
-    backgroundColor: colors.backgroundAlt,
-    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   skillTagText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.primary,
-  },
-  skillTagTextSecondary: {
-    color: colors.textSecondary,
-  },
-
-  // Connect Button
-  connectButton: {
-    marginTop: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    boxShadow: '0px 4px 12px rgba(255, 112, 67, 0.3)',
-    elevation: 4,
-  },
-  connectButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });
