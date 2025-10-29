@@ -12,7 +12,6 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -24,7 +23,6 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => ({ error: null }),
   signUp: async () => ({ error: null }),
   signOut: async () => {},
-  signInWithGoogle: async () => ({ error: null }),
   refreshProfile: async () => {},
 });
 
@@ -92,10 +90,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
+    // Check if email is not confirmed
+    if (error && error.message.includes('Email not confirmed')) {
+      return { 
+        error: { 
+          message: 'Please verify your email address before signing in. Check your inbox for the verification link.' 
+        } 
+      };
+    }
+
     return { error };
   };
 
@@ -132,16 +140,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
   };
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: 'https://natively.dev/email-confirmed',
-      },
-    });
-    return { error };
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -152,7 +150,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signIn,
         signUp,
         signOut,
-        signInWithGoogle,
         refreshProfile,
       }}
     >

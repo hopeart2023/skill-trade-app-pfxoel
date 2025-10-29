@@ -1,5 +1,10 @@
 
+import { colors, gradients } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import { Message, Profile } from '@/types/database';
 import React, { useState, useEffect, useRef } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '@/app/integrations/supabase/client';
 import {
   View,
   Text,
@@ -13,41 +18,30 @@ import {
   Alert,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { IconSymbol } from '@/components/IconSymbol';
-import { colors } from '@/styles/commonStyles';
-import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '@/app/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { Message, Profile } from '@/types/database';
-import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
+import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function ChatScreen() {
   const { id: conversationId } = useLocalSearchParams<{ id: string }>();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
+  const scrollViewRef = useRef<ScrollView>(null);
+
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState('');
+  const [newMessage, setNewMessage] = useState('');
+  const [otherUser, setOtherUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [otherUser, setOtherUser] = useState<Profile | null>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
-  const channelRef = useRef<any>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
-    if (!conversationId || !user) return;
-
-    loadConversation();
-    loadMessages();
-    setupRealtimeSubscription();
-
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
+    if (conversationId && user) {
+      loadConversation();
+      loadMessages();
+      setupRealtimeSubscription();
+    }
   }, [conversationId, user]);
 
   const loadConversation = async () => {
@@ -60,10 +54,7 @@ export default function ChatScreen() {
 
       if (error) throw error;
 
-      // Get the other user's profile
-      const otherUserId = data.participant1_id === user?.id 
-        ? data.participant2_id 
-        : data.participant1_id;
+      const otherUserId = data.participant1_id === user?.id ? data.participant2_id : data.participant1_id;
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -72,6 +63,7 @@ export default function ChatScreen() {
         .single();
 
       if (profileError) throw profileError;
+
       setOtherUser(profileData);
     } catch (error) {
       console.error('Error loading conversation:', error);
@@ -88,10 +80,9 @@ export default function ChatScreen() {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
 
-      // Mark messages as read
-      await markMessagesAsRead();
+      setMessages(data || []);
+      markMessagesAsRead();
     } catch (error) {
       console.error('Error loading messages:', error);
     } finally {
@@ -99,26 +90,29 @@ export default function ChatScreen() {
     }
   };
 
-  const setupRealtimeSubscription = async () => {
-    if (channelRef.current?.state === 'subscribed') return;
-
-    const channel = supabase.channel(`conversation:${conversationId}`, {
-      config: { private: true },
-    });
-
-    channelRef.current = channel;
-
-    await supabase.realtime.setAuth();
-
-    channel
-      .on('broadcast', { event: 'INSERT' }, (payload: any) => {
-        console.log('New message received:', payload);
-        if (payload.new) {
-          setMessages((prev) => [...prev, payload.new]);
-          scrollViewRef.current?.scrollToEnd({ animated: true });
+  const setupRealtimeSubscription = () => {
+    const channel = supabase
+      .channel(`conversation:${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          setMessages((current) => [...current, payload.new as Message]);
+          if (payload.new.sender_id !== user?.id) {
+            markMessagesAsRead();
+          }
         }
-      })
+      )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   };
 
   const markMessagesAsRead = async () => {
@@ -136,23 +130,64 @@ export default function ChatScreen() {
     }
   };
 
-  const sendMessage = async (content: string, type: 'text' | 'image' | 'file' = 'text', fileUrl?: string, fileName?: string, fileSize?: number) => {
-    if ((!content.trim() && type === 'text') || !user) return;
+  const uploadFile = async (uri: string, type: 'image' | 'file'): Promise<string | null> => {
+    if (!user) return null;
+
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${conversationId}/${user.id}/${Date.now()}.${fileExt}`;
+      const bucket = type === 'image' ? 'chat-files' : 'chat-files';
+
+      const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, blob, {
+          contentType: type === 'image' ? `image/${fileExt}` : 'application/octet-stream',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      return null;
+    }
+  };
+
+  const sendMessage = async (content: string, type: 'text' | 'image' | 'file' = 'text', fileUrl?: string, fileName?: string) => {
+    if (!user || (!content.trim() && !fileUrl)) return;
 
     setSending(true);
     try {
       const { error } = await supabase.from('messages').insert({
         conversation_id: conversationId,
         sender_id: user.id,
-        content: content.trim() || fileName || 'File',
+        content: content || fileName || 'File',
         message_type: type,
         file_url: fileUrl,
         file_name: fileName,
-        file_size: fileSize,
       });
 
       if (error) throw error;
-      setInputText('');
+
+      await supabase
+        .from('conversations')
+        .update({
+          last_message: content || fileName || 'File',
+          last_message_at: new Date().toISOString(),
+        })
+        .eq('id', conversationId);
+
+      setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'Failed to send message');
@@ -162,194 +197,223 @@ export default function ChatScreen() {
   };
 
   const handleSendText = () => {
-    sendMessage(inputText);
+    if (newMessage.trim()) {
+      sendMessage(newMessage, 'text');
+    }
   };
 
   const handlePickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please grant camera roll permissions');
-      return;
-    }
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'We need camera roll permissions to send images.');
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      const asset = result.assets[0];
-      // In a real app, upload to Supabase Storage first
-      Alert.alert('Image Selected', 'Image upload feature coming soon!');
-      // sendMessage('Image', 'image', asset.uri, 'image.jpg', asset.fileSize);
+      if (!result.canceled && result.assets[0]) {
+        setUploading(true);
+        const fileUrl = await uploadFile(result.assets[0].uri, 'image');
+        setUploading(false);
+
+        if (fileUrl) {
+          await sendMessage('Image', 'image', fileUrl);
+        } else {
+          Alert.alert('Error', 'Failed to upload image');
+        }
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      setUploading(false);
+      Alert.alert('Error', 'Failed to pick image');
     }
   };
 
   const handlePickFile = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
+        type: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'],
         copyToCacheDirectory: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        Alert.alert('File Selected', 'File upload feature coming soon!');
-        // In a real app, upload to Supabase Storage first
-        // sendMessage(asset.name, 'file', asset.uri, asset.name, asset.size);
+        setUploading(true);
+        const fileUrl = await uploadFile(result.assets[0].uri, 'file');
+        setUploading(false);
+
+        if (fileUrl) {
+          await sendMessage(result.assets[0].name, 'file', fileUrl, result.assets[0].name);
+        } else {
+          Alert.alert('Error', 'Failed to upload file');
+        }
       }
     } catch (error) {
       console.error('Error picking file:', error);
+      setUploading(false);
+      Alert.alert('Error', 'Failed to pick file');
     }
   };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   const renderMessage = (message: Message) => {
     const isOwn = message.sender_id === user?.id;
 
     return (
-      <View
-        key={message.id}
-        style={[
-          styles.messageContainer,
-          isOwn ? styles.ownMessageContainer : styles.otherMessageContainer,
-        ]}
-      >
-        {!isOwn && otherUser?.avatar_url && (
-          <Image source={{ uri: otherUser.avatar_url }} style={styles.avatar} />
-        )}
-
-        <View style={[styles.messageBubble, isOwn ? styles.ownBubble : styles.otherBubble]}>
-          {message.message_type === 'image' && message.file_url && (
-            <Image source={{ uri: message.file_url }} style={styles.messageImage} />
+      <View key={message.id} style={[styles.messageContainer, isOwn && styles.ownMessageContainer]}>
+        <View style={[styles.messageBubble, isOwn && styles.ownMessageBubble]}>
+          {isOwn && (
+            <LinearGradient
+              colors={gradients.primary}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.ownMessageGradient}
+            >
+              {message.message_type === 'image' && message.file_url ? (
+                <Image source={{ uri: message.file_url }} style={styles.messageImage} />
+              ) : message.message_type === 'file' && message.file_url ? (
+                <View style={styles.fileContainer}>
+                  <IconSymbol name="doc.fill" size={24} color="#FFFFFF" />
+                  <Text style={styles.fileName}>{message.file_name || 'File'}</Text>
+                </View>
+              ) : (
+                <Text style={styles.ownMessageText}>{message.content}</Text>
+              )}
+              <Text style={styles.ownMessageTime}>{formatTime(message.created_at)}</Text>
+            </LinearGradient>
           )}
-          {message.message_type === 'file' && (
-            <View style={styles.fileContainer}>
-              <IconSymbol name="doc.fill" size={24} color={isOwn ? '#FFFFFF' : colors.primary} />
-              <Text style={[styles.fileName, isOwn && styles.ownMessageText]}>
-                {message.file_name}
-              </Text>
-            </View>
+          {!isOwn && (
+            <>
+              {message.message_type === 'image' && message.file_url ? (
+                <Image source={{ uri: message.file_url }} style={styles.messageImage} />
+              ) : message.message_type === 'file' && message.file_url ? (
+                <View style={styles.fileContainer}>
+                  <IconSymbol name="doc.fill" size={24} color={colors.primary} />
+                  <Text style={styles.fileNameOther}>{message.file_name || 'File'}</Text>
+                </View>
+              ) : (
+                <Text style={styles.messageText}>{message.content}</Text>
+              )}
+              <Text style={styles.messageTime}>{formatTime(message.created_at)}</Text>
+            </>
           )}
-          {message.message_type === 'voice' && (
-            <View style={styles.voiceContainer}>
-              <IconSymbol name="waveform" size={20} color={isOwn ? '#FFFFFF' : colors.primary} />
-              <Text style={[styles.voiceDuration, isOwn && styles.ownMessageText]}>
-                {message.duration}s
-              </Text>
-            </View>
-          )}
-          {(message.message_type === 'text' || !message.file_url) && (
-            <Text style={[styles.messageText, isOwn && styles.ownMessageText]}>
-              {message.content}
-            </Text>
-          )}
-          <Text style={[styles.messageTime, isOwn && styles.ownMessageTime]}>
-            {formatTime(message.created_at)}
-          </Text>
         </View>
-
-        {isOwn && profile?.avatar_url && (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
-        )}
       </View>
     );
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </SafeAreaView>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <LinearGradient
+          colors={gradients.primary}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
+        >
           <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <IconSymbol name="chevron.left" size={24} color={colors.text} />
+            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
           </Pressable>
+          
           <View style={styles.headerCenter}>
-            {otherUser?.avatar_url && (
+            {otherUser?.avatar_url ? (
               <Image source={{ uri: otherUser.avatar_url }} style={styles.headerAvatar} />
+            ) : (
+              <View style={styles.headerAvatarPlaceholder}>
+                <IconSymbol name="person.fill" size={20} color="#FFFFFF" />
+              </View>
             )}
             <View>
-              <Text style={styles.headerTitle}>{otherUser?.name || 'User'}</Text>
-              <Text style={styles.headerSubtitle}>Online</Text>
+              <Text style={styles.headerName}>{otherUser?.name || 'User'}</Text>
+              <Text style={styles.headerStatus}>Online</Text>
             </View>
           </View>
-          <Pressable style={styles.moreButton}>
-            <IconSymbol name="ellipsis" size={24} color={colors.text} />
+
+          <Pressable style={styles.menuButton}>
+            <IconSymbol name="ellipsis" size={24} color="#FFFFFF" />
           </Pressable>
-        </View>
+        </LinearGradient>
 
         {/* Messages */}
         <ScrollView
           ref={scrollViewRef}
           style={styles.messagesContainer}
           contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
           onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.map(renderMessage)}
         </ScrollView>
 
-        {/* Input */}
+        {/* Input Bar */}
         <View style={styles.inputContainer}>
-          <Pressable style={styles.attachButton} onPress={handlePickFile}>
-            <IconSymbol name="paperclip" size={24} color={colors.textSecondary} />
-          </Pressable>
-          <Pressable style={styles.attachButton} onPress={handlePickImage}>
-            <IconSymbol name="photo" size={24} color={colors.textSecondary} />
-          </Pressable>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            placeholderTextColor={colors.textSecondary}
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={1000}
-            editable={!sending}
-          />
-          <Pressable
-            onPress={handleSendText}
-            style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
-            disabled={!inputText.trim() || sending}
-          >
-            <LinearGradient
-              colors={
-                !inputText.trim() || sending
-                  ? [colors.textSecondary, colors.textSecondary]
-                  : [colors.primary, colors.secondary]
-              }
-              style={styles.sendButtonGradient}
+          {uploading && (
+            <View style={styles.uploadingIndicator}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.uploadingText}>Uploading...</Text>
+            </View>
+          )}
+          
+          <View style={styles.inputBar}>
+            <Pressable onPress={handlePickImage} disabled={uploading || sending}>
+              <IconSymbol name="photo.fill" size={24} color={colors.primary} />
+            </Pressable>
+
+            <Pressable onPress={handlePickFile} disabled={uploading || sending}>
+              <IconSymbol name="paperclip" size={24} color={colors.primary} />
+            </Pressable>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.textSecondary}
+              value={newMessage}
+              onChangeText={setNewMessage}
+              multiline
+              maxLength={1000}
+              editable={!uploading && !sending}
+            />
+
+            <Pressable 
+              onPress={handleSendText} 
+              disabled={!newMessage.trim() || uploading || sending}
+              style={styles.sendButton}
             >
-              {sending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <IconSymbol name="arrow.up" size={20} color="#FFFFFF" />
-              )}
-            </LinearGradient>
-          </Pressable>
+              <LinearGradient
+                colors={gradients.primary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sendButtonGradient}
+              >
+                {sending ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <IconSymbol name="arrow.up" size={20} color="#FFFFFF" />
+                )}
+              </LinearGradient>
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -368,160 +432,174 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    gap: 12,
   },
   backButton: {
-    padding: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerCenter: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginLeft: 8,
   },
   headerAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
-  headerTitle: {
-    fontSize: 18,
+  headerAvatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  headerName: {
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.text,
+    color: '#FFFFFF',
   },
-  headerSubtitle: {
+  headerStatus: {
     fontSize: 12,
-    color: colors.success,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
-  moreButton: {
-    padding: 8,
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   messagesContainer: {
     flex: 1,
+    backgroundColor: colors.background,
   },
   messagesContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 20,
+    padding: 16,
+    gap: 12,
   },
   messageContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
-    gap: 8,
-    alignItems: 'flex-end',
+    marginBottom: 8,
   },
   ownMessageContainer: {
     justifyContent: 'flex-end',
   },
-  otherMessageContainer: {
-    justifyContent: 'flex-start',
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-  },
   messageBubble: {
-    maxWidth: '70%',
-    borderRadius: 16,
+    maxWidth: '75%',
+    borderRadius: 20,
+    padding: 12,
+    backgroundColor: colors.card,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
+    elevation: 2,
+  },
+  ownMessageBubble: {
+    backgroundColor: 'transparent',
+  },
+  ownMessageGradient: {
+    borderRadius: 20,
     padding: 12,
   },
-  ownBubble: {
-    backgroundColor: colors.primary,
-    borderBottomRightRadius: 4,
-  },
-  otherBubble: {
-    backgroundColor: colors.card,
-    borderBottomLeftRadius: 4,
-  },
   messageText: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
     color: colors.text,
     marginBottom: 4,
   },
   ownMessageText: {
+    fontSize: 16,
     color: '#FFFFFF',
+    marginBottom: 4,
   },
   messageTime: {
     fontSize: 11,
     color: colors.textSecondary,
-    marginTop: 4,
   },
   ownMessageTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'right',
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   messageImage: {
     width: 200,
     height: 200,
-    borderRadius: 8,
+    borderRadius: 12,
     marginBottom: 4,
   },
   fileContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 4,
   },
   fileName: {
     fontSize: 14,
-    color: colors.text,
+    color: '#FFFFFF',
+    fontWeight: '500',
   },
-  voiceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  voiceDuration: {
+  fileNameOther: {
     fontSize: 14,
     color: colors.text,
+    fontWeight: '500',
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
-  attachButton: {
-    padding: 8,
+  uploadingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  uploadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.backgroundAlt,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   input: {
     flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.text,
     maxHeight: 100,
-    minHeight: 40,
+    paddingVertical: 8,
   },
   sendButton: {
-    width: 40,
-    height: 40,
     borderRadius: 20,
     overflow: 'hidden',
   },
-  sendButtonDisabled: {
-    opacity: 0.5,
-  },
   sendButtonGradient: {
-    width: '100%',
-    height: '100%',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },

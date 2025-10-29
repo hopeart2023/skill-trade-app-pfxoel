@@ -11,20 +11,24 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
+import { colors, gradients } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { BlurView } from 'expo-blur';
 
 export default function LoginScreen() {
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -43,143 +47,141 @@ export default function LoginScreen() {
       console.error('Login error:', error);
       Alert.alert('Login Failed', error.message || 'Invalid email or password');
     } else {
-      Alert.alert('Success', 'Login successful!');
+      Alert.alert('Success', 'Welcome back!');
       router.replace('/(tabs)/(home)');
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    const { error } = await signInWithGoogle();
-    setIsLoading(false);
-
-    if (error) {
-      console.error('Google login error:', error);
-      Alert.alert('Google Login Failed', error.message || 'Failed to sign in with Google');
-    }
-  };
-
-  const handleAppleLogin = () => {
-    Alert.alert('Coming Soon', 'Apple login will be available soon!');
-  };
-
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Pressable style={styles.backButton} onPress={() => router.back()}>
-              <IconSymbol name="chevron.left" size={24} color={colors.text} />
-            </Pressable>
-            <Text style={styles.title}>Welcome Back!</Text>
-            <Text style={styles.subtitle}>Sign in to continue trading skills</Text>
-          </View>
-
-          {/* Form */}
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <View style={styles.inputWrapper}>
-                <IconSymbol name="envelope.fill" size={20} color={colors.textSecondary} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="your.email@example.com"
-                  placeholderTextColor={colors.textSecondary}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isLoading}
-                />
+    <LinearGradient
+      colors={gradients.primary}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.gradient}
+    >
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Pressable style={styles.backButton} onPress={() => router.back()}>
+                <BlurView intensity={20} tint="light" style={styles.blurButton}>
+                  <IconSymbol name="chevron.left" size={24} color={colors.text} />
+                </BlurView>
+              </Pressable>
+              
+              <View style={styles.logoContainer}>
+                <Text style={styles.logo}>🤝</Text>
+                <Text style={styles.appName}>SkillTrade</Text>
               </View>
+              
+              <Text style={styles.title}>Welcome Back!</Text>
+              <Text style={styles.subtitle}>Sign in to continue trading skills</Text>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.inputWrapper}>
-                <IconSymbol name="lock.fill" size={20} color={colors.textSecondary} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your password"
-                  placeholderTextColor={colors.textSecondary}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                />
-                <Pressable onPress={() => setShowPassword(!showPassword)}>
-                  <IconSymbol
-                    name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
-                    size={20}
-                    color={colors.textSecondary}
-                  />
+            {/* Glass Form Card */}
+            <BlurView intensity={40} tint="light" style={styles.formCard}>
+              <View style={styles.form}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Email</Text>
+                  <View style={[
+                    styles.inputWrapper,
+                    emailFocused && styles.inputWrapperFocused
+                  ]}>
+                    <IconSymbol name="envelope.fill" size={20} color={emailFocused ? colors.primary : colors.textSecondary} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="your.email@example.com"
+                      placeholderTextColor={colors.textSecondary}
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isLoading}
+                      onFocus={() => setEmailFocused(true)}
+                      onBlur={() => setEmailFocused(false)}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.label}>Password</Text>
+                  <View style={[
+                    styles.inputWrapper,
+                    passwordFocused && styles.inputWrapperFocused
+                  ]}>
+                    <IconSymbol name="lock.fill" size={20} color={passwordFocused ? colors.primary : colors.textSecondary} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Enter your password"
+                      placeholderTextColor={colors.textSecondary}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      editable={!isLoading}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => setPasswordFocused(false)}
+                    />
+                    <Pressable onPress={() => setShowPassword(!showPassword)}>
+                      <IconSymbol
+                        name={showPassword ? 'eye.slash.fill' : 'eye.fill'}
+                        size={20}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  </View>
+                </View>
+
+                <Pressable
+                  style={styles.forgotPassword}
+                  onPress={() => Alert.alert('Forgot Password', 'Password reset feature coming soon!')}
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </Pressable>
+
+                <Pressable 
+                  style={[styles.loginButton, isLoading && styles.loginButtonDisabled]} 
+                  onPress={handleLogin} 
+                  disabled={isLoading}
+                >
+                  <LinearGradient
+                    colors={gradients.primary}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.loginButtonGradient}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.loginButtonText}>Sign In</Text>
+                    )}
+                  </LinearGradient>
                 </Pressable>
               </View>
+            </BlurView>
+
+            {/* Sign Up Link */}
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>Don&apos;t have an account? </Text>
+              <Pressable onPress={() => router.push('/auth/signup')}>
+                <Text style={styles.signupLink}>Sign Up</Text>
+              </Pressable>
             </View>
-
-            <Pressable
-              style={styles.forgotPassword}
-              onPress={() => Alert.alert('Forgot Password', 'Feature coming soon!')}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </Pressable>
-
-            <Pressable style={styles.loginButton} onPress={handleLogin} disabled={isLoading}>
-              <LinearGradient
-                colors={[colors.primary, colors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.loginButtonGradient}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.loginButtonText}>Sign In</Text>
-                )}
-              </LinearGradient>
-            </Pressable>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Login */}
-          <View style={styles.socialButtons}>
-            <Pressable style={styles.socialButton} onPress={handleGoogleLogin} disabled={isLoading}>
-              <IconSymbol name="globe" size={24} color={colors.text} />
-              <Text style={styles.socialButtonText}>Google</Text>
-            </Pressable>
-
-            <Pressable style={styles.socialButton} onPress={handleAppleLogin} disabled={isLoading}>
-              <IconSymbol name="apple.logo" size={24} color={colors.text} />
-              <Text style={styles.socialButtonText}>Apple</Text>
-            </Pressable>
-          </View>
-
-          {/* Sign Up Link */}
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>Don&apos;t have an account? </Text>
-            <Pressable onPress={() => router.push('/auth/signup')}>
-              <Text style={styles.signupLink}>Sign Up</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
+  gradient: {
+    flex: 1,
+  },
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   container: {
     flex: 1,
@@ -190,49 +192,92 @@ const styles = StyleSheet.create({
   },
   header: {
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 32,
+    alignItems: 'center',
   },
   backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  blurButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logo: {
+    fontSize: 64,
+    marginBottom: 8,
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   title: {
     fontSize: 32,
     fontWeight: '800',
-    color: colors.text,
+    color: '#FFFFFF',
     marginBottom: 8,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  formCard: {
+    borderRadius: 24,
+    padding: 24,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    overflow: 'hidden',
   },
   form: {
-    marginBottom: 32,
+    gap: 20,
   },
   inputContainer: {
-    marginBottom: 20,
+    gap: 8,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 16,
     gap: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  inputWrapperFocused: {
+    borderColor: colors.primary,
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0px 0px 0px 4px rgba(255, 139, 0, 0.1)',
   },
   input: {
     flex: 1,
@@ -241,21 +286,23 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginBottom: 24,
   },
   forgotPasswordText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.accent,
   },
   loginButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    boxShadow: '0px 4px 12px rgba(255, 112, 67, 0.3)',
-    elevation: 4,
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.2)',
+    elevation: 8,
+  },
+  loginButtonDisabled: {
+    opacity: 0.7,
   },
   loginButtonGradient: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: 'center',
   },
   loginButtonText: {
@@ -263,55 +310,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  socialButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 32,
-  },
-  socialButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  socialButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
   signupContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 16,
   },
   signupText: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   signupLink: {
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primary,
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });

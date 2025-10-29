@@ -98,3 +98,11 @@ export interface Session {
   student?: Profile;
   skill?: Skill;
 }
+
+export interface AIChatHistory {
+  id: string;
+  user_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  created_at: string;
+}

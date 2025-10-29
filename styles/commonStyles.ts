@@ -1,68 +1,99 @@
 
-import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-// SkillTrade Color Scheme - Based on the gradient logo
+// SkillTrade Color Scheme - Gradient modern + glassmorphism + playful social
 export const colors = {
-  // Main brand colors from logo gradient
-  primary: '#FF7043',      // Orange
-  secondary: '#D81B60',    // Pink
-  accent: '#7B1FA2',       // Purple
+  // Primary Gradient: Orange → Pink → Purple
+  primary: '#FF8B00',      // Orange
+  secondary: '#FF3C83',    // Pink
+  accent: '#B500FF',       // Purple
   
   // Background colors
   background: '#FFFFFF',
-  backgroundAlt: '#F5F5F5',
+  backgroundDark: '#0A0A0A',
+  backgroundAlt: '#F8F9FA',
+  backgroundAltDark: '#1A1A1A',
   
   // Text colors
-  text: '#2D2D2D',
-  textSecondary: '#6B6B6B',
+  text: '#1A1A1A',
+  textDark: '#FFFFFF',
+  textSecondary: '#6B7280',
+  textSecondaryDark: '#9CA3AF',
   
   // UI elements
-  card: '#F5F5F5',
-  highlight: '#FFF3E0',
-  border: '#E0E0E0',
+  card: '#FFFFFF',
+  cardDark: '#1F1F1F',
+  highlight: '#FFF5E6',
+  highlightDark: '#2A1A0A',
+  border: '#E5E7EB',
+  borderDark: '#374151',
+  
+  // Glass effect
+  glass: 'rgba(255, 255, 255, 0.7)',
+  glassDark: 'rgba(31, 31, 31, 0.7)',
   
   // Status colors
-  success: '#4CAF50',
-  warning: '#FFC107',
-  error: '#F44336',
-  info: '#2196F3',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
+  info: '#3B82F6',
   
   // Skill category colors
-  design: '#7B1FA2',      // Purple
-  development: '#FF7043',  // Orange
-  music: '#4CAF50',        // Green
-  writing: '#2196F3',      // Blue
-  photography: '#D81B60',  // Pink
-  language: '#FFC107',     // Yellow
+  design: '#B500FF',       // Purple
+  development: '#FF8B00',  // Orange
+  music: '#10B981',        // Green
+  writing: '#3B82F6',      // Blue
+  photography: '#FF3C83',  // Pink
+  language: '#F59E0B',     // Yellow
+};
+
+export const gradients = {
+  primary: ['#FF8B00', '#FF3C83', '#B500FF'],
+  primaryReverse: ['#B500FF', '#FF3C83', '#FF8B00'],
+  warm: ['#FF8B00', '#FF3C83'],
+  cool: ['#FF3C83', '#B500FF'],
+  purple: ['#B500FF', '#8B00CC'],
+  orange: ['#FF8B00', '#FF6B00'],
+  pink: ['#FF3C83', '#FF1C63'],
 };
 
 export const buttonStyles = StyleSheet.create({
   primary: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0px 4px 12px rgba(255, 112, 67, 0.3)',
-    elevation: 4,
+    boxShadow: '0px 8px 24px rgba(255, 139, 0, 0.3)',
+    elevation: 8,
   },
   secondary: {
-    backgroundColor: colors.secondary,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0px 4px 12px rgba(216, 27, 96, 0.3)',
+    boxShadow: '0px 8px 24px rgba(255, 60, 131, 0.3)',
+    elevation: 8,
+  },
+  glass: {
+    backgroundColor: colors.glass,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.1)',
     elevation: 4,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: colors.primary,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingVertical: 14,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -92,57 +123,95 @@ export const commonStyles = StyleSheet.create({
     justifyContent: 'center',
     maxWidth: 800,
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
   },
-  title: {
+  // Typography - Poppins/Inter style
+  heading1: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  heading2: {
     fontSize: 28,
     fontWeight: '800',
     color: colors.text,
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 20,
+  heading3: {
+    fontSize: 24,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 8,
   },
-  text: {
+  subheading: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  body: {
     fontSize: 16,
     fontWeight: '400',
     color: colors.text,
     lineHeight: 24,
   },
-  textSecondary: {
+  bodyMedium: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+    lineHeight: 24,
+  },
+  caption: {
     fontSize: 14,
     fontWeight: '400',
     color: colors.textSecondary,
     lineHeight: 20,
   },
+  small: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  // Layout
   section: {
     width: '100%',
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     marginBottom: 24,
+  },
+  // Glass card with blur effect
+  glassCard: {
+    backgroundColor: colors.glass,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.12)',
+    elevation: 8,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
-  },
-  gradientCard: {
-    borderRadius: 16,
+    borderRadius: 24,
     padding: 20,
-    marginBottom: 12,
-    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.12)',
+    marginBottom: 16,
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.08)',
     elevation: 4,
+  },
+  floatingCard: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 16,
+    boxShadow: '0px 12px 40px rgba(0, 0, 0, 0.15)',
+    elevation: 12,
   },
   input: {
     backgroundColor: colors.backgroundAlt,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
     fontSize: 16,
     color: colors.text,
     borderWidth: 1,
@@ -151,12 +220,23 @@ export const commonStyles = StyleSheet.create({
   inputFocused: {
     borderColor: colors.primary,
     borderWidth: 2,
+    boxShadow: '0px 0px 0px 4px rgba(255, 139, 0, 0.1)',
+  },
+  glassInput: {
+    backgroundColor: colors.glass,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   tag: {
     backgroundColor: colors.highlight,
     borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     marginRight: 8,
     marginBottom: 8,
   },
@@ -171,18 +251,36 @@ export const commonStyles = StyleSheet.create({
     marginVertical: 16,
   },
   shadow: {
-    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-    elevation: 2,
+    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.08)',
+    elevation: 4,
   },
   shadowLarge: {
-    boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.12)',
-    elevation: 4,
+    boxShadow: '0px 12px 40px rgba(0, 0, 0, 0.15)',
+    elevation: 12,
+  },
+  // Gradient text effect (use with LinearGradient wrapper)
+  gradientText: {
+    fontSize: 32,
+    fontWeight: '800',
   },
 });
 
-export const gradients = {
-  primary: ['#FF7043', '#D81B60', '#7B1FA2'],
-  secondary: ['#7B1FA2', '#D81B60', '#FF7043'],
-  warm: ['#FF7043', '#FFC107'],
-  cool: ['#2196F3', '#7B1FA2'],
+// Animation presets
+export const animations = {
+  buttonPress: {
+    scale: 0.95,
+    duration: 100,
+  },
+  cardHover: {
+    scale: 1.02,
+    duration: 200,
+  },
+  fadeIn: {
+    opacity: 1,
+    duration: 300,
+  },
+  slideIn: {
+    translateY: 0,
+    duration: 300,
+  },
 };
