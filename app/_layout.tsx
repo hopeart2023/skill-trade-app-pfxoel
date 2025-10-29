@@ -16,6 +16,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Button } from "@/components/button";
 import { WidgetProvider } from "@/contexts/WidgetContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -83,11 +84,32 @@ export default function RootLayout() {
         <ThemeProvider
           value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
         >
-          <WidgetProvider>
-            <GestureHandlerRootView>
+          <AuthProvider>
+            <WidgetProvider>
+              <GestureHandlerRootView>
             <Stack>
+              {/* Auth Screens */}
+              <Stack.Screen 
+                name="auth/welcome" 
+                options={{ headerShown: false }} 
+              />
+              <Stack.Screen 
+                name="auth/login" 
+                options={{ headerShown: false }} 
+              />
+              <Stack.Screen 
+                name="auth/signup" 
+                options={{ headerShown: false }} 
+              />
+
               {/* Main app with tabs */}
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+              {/* User Detail Screen */}
+              <Stack.Screen 
+                name="user/[id]" 
+                options={{ headerShown: false }} 
+              />
 
               {/* Modal Demo Screens */}
               <Stack.Screen
@@ -115,9 +137,10 @@ export default function RootLayout() {
                 }}
               />
             </Stack>
-            <SystemBars style={"auto"} />
-            </GestureHandlerRootView>
-          </WidgetProvider>
+              <SystemBars style={"auto"} />
+              </GestureHandlerRootView>
+            </WidgetProvider>
+          </AuthProvider>
         </ThemeProvider>
     </>
   );
